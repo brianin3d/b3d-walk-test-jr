@@ -1,0 +1,131 @@
+<HTML>
+	<HEAD>
+		<TITLE>walk test</TITLE>
+
+		<style>
+			body {
+				font-family: Comic Sans MS, sans;
+			}
+			.top {
+				height:300px; /* 0.75 * width of img... */
+			}
+			img { 
+				position:absolute; 
+				width:400px;
+			}
+			#holds {
+				z-index:10;
+			}
+		</style>
+		<script type="text/javascript" src="js/jquery-1.10.2.min.js"></script>
+
+		<script type="text/javascript">
+			/* add new version here: */
+			var VERSIONS = 'take02 take01 take00'.split( ' ' );
+
+			/**
+			 *
+			 * There has to be some overlap so it looks like a 
+			 * complete walk across the page.
+			 *
+			 */
+			var fix_offset = function( anim, inc ) {
+				var x = 0;
+				for ( var i = 0 ; i < anim.length ; i++, x += inc ) {
+					$( anim[ i ] ).css( 'left', x + 'px' );
+				}
+			};
+
+            $( window ).load( 
+				function() {
+					var anim = $( '.anim' );
+					
+					/* need to ovelap a bit to complete sequence */
+					fix_offset( anim, anim.width() / 300 * 210 );
+
+					var count = 0;
+					var frame = 1;
+
+					var hold_select = $( 'select[name="hold"]' );
+					var version_select = $( 'select[name="version"]' );
+					var all_img = $( '#all' );
+					var version_label = $( '#version' );
+
+					var to_hold = false;
+					var version = false;
+
+					for ( var i = 0 ; i < VERSIONS.length ; i++ ) {
+						version_select.append( '<option>' + VERSIONS[ i ] + '</option>' );
+					}
+
+					hold_select.change(
+						function() {
+							to_hold = parseInt( $( this ).val() );
+						}
+					);
+
+					version_select.change( 
+						function() {
+							version = $( this ).val();
+							version_label.html( version );
+							all_img.attr( 'src', 'svg/walk00_' + version + '.svg' );
+						}
+					)
+					hold_select.change();
+					version_select.change();
+
+					setInterval(
+						function() {
+							if ( ++count < to_hold ) {
+								return;
+							}
+							
+							count = 0;
+							frame += 2; 
+
+							if ( frame > 15 ) {
+								frame = 1;
+							}
+
+							var src = 'images/' + version + '/frame_' + frame + '.png';
+							for ( var i = 0 ; i < anim.length ; i ++ ) {
+								anim[ i ].src = src ;
+							}
+						}
+						, 1000 / 24 //( 24 / hold ) 
+					);
+				}
+			);
+		</script>
+
+	</HEAD>
+
+	<BODY>
+		<div class="top">
+			<img class="anim"/>
+			<img class="anim"/>
+			<img class="anim"/>
+			<img class="anim"/>
+			<img class="anim"/>
+			<img class="anim"/>
+			<img class="anim"/>
+		</div>
+		<div id="holds">
+			hold:
+			<select name="hold">
+				<option>2: on 8s, "cartoon walk" or slow run, 3 steps a second</option>
+				<option>3: on 12, brisk, "natural walk", 2 steps a second</option>
+				<option>4: on 16s, strolling, 2/3 seconds per step</option>
+				<option>6: on 20s, elderly or tired, almost a second per step</option>
+				<option>8: on 24s, slow steps, one per second</option>
+			</select>
+			version:
+			<select name="version">
+			</select>
+		</div>
+		<div id="under">
+			<img id="all"/>
+			<div id="version">oops</div>
+		</div>
+	</BODY>
+</HTML>
