@@ -1,0 +1,101 @@
+<HTML>
+	<HEAD>
+		<TITLE>TITLE</TITLE>
+
+		<style>
+			body {
+				font-family: Comic Sans MS, sans;
+			}
+
+            img { 
+				position:absolute; 
+				top:4em;
+			}
+		</style>
+
+		<script type="text/javascript" src="js/jquery-1.10.2.min.js"></script>
+		<script type="text/javascript">
+			var scale = function() {
+				var txt_width = $( '#width' ).val();
+				var width = parseInt( txt_width );
+				if ( 0 == width ) {
+					alert( 'width error ' + width );
+					return;
+				}
+
+				var txt_scaling = $( '#scaling' ).val();
+				var scale = parseFloat( txt_scaling );
+				if ( 0 == scale ) {
+					alert( 'invalid scaling factor: ' + txt_scaling );
+					return;
+				}
+
+				var txt_shift = $( '#shift' ).val();
+				var shift = parseFloat( txt_shift );
+				if ( 0 == shift ) {
+					alert( 'invalid shift factor: ' + txt_shift );
+					return;
+				}
+
+				$( '.anim' ).each(
+					function( a, b ) { 
+						$(b).css( 'left', ( a * width + a * shift ) * scale+ 'px' );
+						$(b).width( width * scale );
+					}
+				);
+				
+			};
+
+			var anim_loaded = function( anim ) {
+				var width = anim.width();
+				$( '#width' ).val( width );
+				/* reset scaling? $( '#scaling' ).val( '1.00' ); */
+				scale();
+			};
+
+			var update = function() {
+				var html = '';
+				for ( var i = 0 ; i < 10 ; i++ ) {
+					html += '<img class="anim"/>';
+				}
+				$( '#images' ).html( html );
+
+				var anim = $( '.anim' );
+				var loaded = false;
+				anim.load( 
+					function() { 
+						if ( !loaded ) {
+							anim_loaded( anim );
+						}
+						loaded = true;
+					}
+				);
+				anim.attr( 'src', $( '#filename' ).val() );
+			};
+
+			var test = function() {
+				$( '#update' ).click( function() { update(); } );
+				$( '#scale' ).click( function() { scale(); } );
+				$('#update').click(); 
+			};
+
+			$( window ).load( function() { test() } ); 
+		</script>
+
+		</HEAD>
+
+		<BODY>
+			<div>
+				<input id="filename" size="64" value="test.gif">
+				<button id="update">update</button>
+			</div>
+			<div>
+				image width: <span id="width"></span> * <input id="scaling" size="8" value="0.50"/>
+				+ <input id="shift" size="8" value="-210"/>
+				<button id="scale">scale</button>
+			<div>
+
+			<div id="images"></div>
+	</BODY>
+
+	</HTML>
