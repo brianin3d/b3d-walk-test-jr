@@ -8,9 +8,9 @@ I recently got a copy of the ferkin amazing book [The Animator's Survival Guide]
 
 I'm always torn about how to best fnck this stuff up:
 
-# pencil and paper
-# inkscape
-# blender
+* pencil and paper
+* inkscape
+* blender
 
 All good obvious choices on how to produce a real train wreck.
 
