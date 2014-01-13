@@ -157,8 +157,9 @@ _frame_job_main() {
 	local now=$( date +"%Y-%m-%d+%H-%M-%S" )
 	local gifname=$( basename ${1} | sed "s,.svg$,-${now}.gif," )
 	convert -delay ${delay} -loop 0 -alpha set -dispose previous ${file_list} ${gifname} 
+	cp ${gifname} test.gif
 
-	echo output should be in ${PWD}/${gifname}
+	echo output should be in ${PWD}/${gifname} and ${PWD}/test.gif
 
 	####
 	# cleanup	
