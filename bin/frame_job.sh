@@ -1,13 +1,34 @@
 #!/bin/bash	
 ########################################################################
 #
+# Usage: frame_job.sh inkscape.svg
 #
+# This script assumes the layers with names like "back..." and "bg.." are 
+# background layers which should be rendered on every frame.
+# 
+# The naming conventions for the frames should be either "frame..." or "layer..."
 #
+# The naming is not case sensitive.
 #
+# The first group of numbers in the name are taken to be the frame number. Frame #1
+# could be either "frame1" or "frame_1" or "frame_1_so_other_notes_or_#3"
+# 
+# The script does a bad job of trying to guess a delay. You can override it by 
+# export DELAY variable in the shell you run it from.
 #
-# http://daniel-albuschat.blogspot.com/2013/03/export-layers-from-svg-files-to-png.html
+# If you export KEEP_TMP_FILES, it will do just that as well.
 #
+# Oh... you need xsltproc and inkscape installed and on the path. Also imagemagick for 
+# the animated gif.
 #
+# If everything works right, you will have a file called "test.gif" and "test-{timestamped}.gif"
+# in pwd.
+#
+# Good luck
+#
+# Thx to http://daniel-albuschat.blogspot.com/2013/03/export-layers-from-svg-files-to-png.html
+#
+# @author Brian Hammond
 #
 ########################################################################
 
@@ -119,7 +140,7 @@ _frame_job_main() {
 	####
 	# time to filter and render all the background layers and each frame layer separately
 
-	local tmp_file=/tmp/.${USER}.frame_job.${$}.${RANDOM}.${RANDOM}
+	local tmp_file=/tmp/.${USER}.frame_job.${$}
 	local file_list=""
 	local frame_layer
 	for frame_layer in ${frame_layers} ; do
@@ -131,9 +152,9 @@ _frame_job_main() {
 		local trash=$( echo ${frame_layer} ${bg_layers} ${all_layers} | _frame_job_only_once )
 		
 		echo rendering ${frame} using ${frame_layer} 
-		_frame_job_main_filter ${1} ${trash} > ${tmp_file} || break
+		_frame_job_main_filter ${1} ${trash} > ${tmp_file}-frame-${frame}.svg || break
 		local png_filename=${tmp_file}-${frame}.png
-		inkscape ${tmp_file} --export-png=${png_filename} || break
+		inkscape ${tmp_file}-frame-${frame}.svg --export-png=${png_filename} || break
 		file_list="${file_list} ${png_filename}"
 	done
 
@@ -163,7 +184,9 @@ _frame_job_main() {
 
 	####
 	# cleanup	
-	rm -f ${tmp_file}*
+	if [ "" != "${KEEP_TMP_FILES}" ] ; then
+		rm -f ${tmp_file}*
+	fi
 }
 
 _frame_job_main ${*}
