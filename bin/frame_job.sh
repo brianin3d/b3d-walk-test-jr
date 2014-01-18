@@ -162,17 +162,19 @@ _frame_job_main() {
 	# make the animated image
 
 	local elapsed_time=${ELAPSED_TIME-1000}
+
+	# so... the issue is imagemagick's unit isn't ms, it's "1/100th of a second" 
 	local delay
-	let delay=${elapsed_time}/${frame_count}
+	let delay=${elapsed_time}/${frame_count}/10
 
 	if [ "" != "${DELAY}" ] ; then
 		delay=${DELAY}
 	fi
 
 	echo "----------------------------------------------------------------------------"
-	echo "elapsed time: ${elapsed_time}"
-	echo "frame  count: ${frame_count}"
-	echo "ms per frame: ${delay}"
+	echo "elapsed    time: ${elapsed_time}"
+	echo "frame     count: ${frame_count}"
+	echo "delay per frame: ${delay}"
 	echo "----------------------------------------------------------------------------"
 
 	local now=$( date +"%Y-%m-%d+%H-%M-%S" )
