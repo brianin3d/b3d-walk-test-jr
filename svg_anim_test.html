@@ -1,0 +1,315 @@
+<HTML>
+	<HEAD>
+		<TITLE>svg animation tester</TITLE>
+
+		<style>
+			body {
+				font-family: Comic Sans MS, sans;
+			}
+			iframe {
+				border:0px;
+				position: fixed; 
+			}
+			.retro_recessed {
+				border-top:2px solid black;
+				border-left:2px solid black;
+				border-right:2px solid white;
+				border-bottom:2px solid white;
+			}
+			#controls {
+				padding:1em;
+				margin-bottom:1em;
+			}
+			#controls span {
+				margin-right:3em;
+			}
+			#svgs_go_where {
+				position:absolute;
+				width:4000px;
+			}
+		</style>
+
+		<script type="text/javascript">
+			var AnimateInkscape = function( src ) {
+				this.id = function( id ) { 
+					return document.getElementById( id );
+				};
+
+				this.foundGroup = function( g ) {
+					var id = g.getAttribute( 'id' );
+					if ( this.layers[ id ] ) {
+						this.layers[ id ].push( g );
+					} else {
+						this.layers[ id ] = [ g ];
+					}
+				};
+
+				this.findInkscapeLayers = function( current ) {
+					if (
+						current.tagName 
+						&& 'g' == current.tagName.toLowerCase() 
+						&& 'layer' == current.getAttribute( 'inkscape:groupmode' )
+					) {
+						this.foundGroup( current );
+						return;
+					}
+					for ( var i = 0 ; i < current.childNodes.length ; i++ ) {
+						this.findInkscapeLayers( current.childNodes[ i ] );
+					}
+				};
+
+				this.indexIframes = function( iframe ) {
+					/* this is nuts: http://www.w3schools.com/jsref/prop_frame_contentdocument.asp */
+					var iframe_document  = ( iframe.contentWindow || iframe.contentDocument );
+					if ( iframe_document.document ) {
+						iframe_document = iframe_document.document;
+					}
+					this.findInkscapeLayers( iframe_document );
+				};
+
+				this.displayByName = function( name, display ) {
+					var layers = this.layers[ name ];
+					if ( !layers ) {
+						console.log( 'no such name ' + name );
+						return;
+					}
+					for ( var i = 0 ; i < layers.length ; i++ ) {
+						layers[ i ].style.display = display;
+					}
+				};
+							
+				this.displayByIndex = function( index, display ) {
+					this.displayByName( this.frames[ index ], display );
+				};
+
+				this.allDisplay = function( display ) {
+					for ( var i = 0 ; i < this.frames.length ; i++ ) {
+						this.displayByName( this.frames[ i ], display );
+					}
+				};
+
+				this.hideAll = function() {
+					this.allDisplay( 'none' );
+				};
+
+				this.go = function() {
+					this.hideAll();
+
+					var current = 0;
+					var last = new Date().getTime();
+					var thiz = this;
+
+					this.interval = setInterval(
+						function() {
+							var now = new Date().getTime();
+							if ( now - last < thiz.delay ) {
+								return;
+							}
+							last = now;
+
+							thiz.displayByIndex( current, 'none' );
+							current++;
+							if ( current >= thiz.frames.length ) {
+								current = 0;
+							}
+							thiz.displayByIndex( current, 'inline' );
+						}
+						, 1 /* might be nicer to clear the interval... */
+					);
+				};
+
+				this.stop = function() {
+					if ( this.interval ) {
+						clearInterval( this.interval );
+						this.interval = false;
+					}
+				};
+
+				this.tryToSet = function( name, value ) {
+					var element = this.id( name );
+					if ( element ) {
+						element.setAttribute( 'value', value );
+						element.value = value; /* whatever... */
+					}
+				};
+
+				this.setControl = function( name, value ) {
+					this.tryToSet( name + '_value', value );
+					this.tryToSet( name + '_range', value );
+				};
+
+				this.addCallbackToControl = function( control, callback ) {
+					if ( control ) {
+						control.onchange = function() {
+							callback( control );
+						}
+					}
+					return control;
+				};
+
+				this.eventHandler = function( name, callback ) {
+					var ext = [ '_value', '_range' ];
+					for ( var i = 0 ; i < ext.length ; i++ ) {
+						var control = this.addCallbackToControl( this.id( name + ext[ i ] ), callback );
+					}
+				};
+
+				this.tweakOffsets = function() {
+					var offset = parseInt( this.id( 'offset_value' ).value );
+					var start = parseInt( this.id( 'start_value' ).value );
+
+					var width = parseInt( this.iframes[ 0 ].offsetWidth );
+					console.log( width );
+
+					for ( var i = 0, x = start ; i < this.iframes.length ; i++, x += width + offset ) {
+						this.iframes[ i ].style.left = x + 'px';
+					}
+				};
+				
+				this.funControls = function( id ) { 
+					var thiz = this;
+					this.eventHandler(
+						id 
+						, function( e ) { 
+							thiz.setControl( id, parseInt( e.value ) );
+							thiz.tweakOffsets();
+						}
+					);
+				}
+
+			 	this.eventHandlers = function() {
+					var thiz = this;
+
+					this.eventHandler( 
+						'delay'
+						, function( e ) { 
+							var value = parseInt( e.value );
+							thiz.delay = value;
+							thiz.setControl( 'delay', thiz.delay );
+						}
+					);
+
+					var border = this.id( 'border' );
+					if ( border ) {
+						border.onclick = function() {
+							var value = border.checked ? '1px solid red' : '';
+							for ( var i = 0 ; i < thiz.iframes.length ; i++ ) {
+								thiz.iframes[ i ].style.border = value;
+							}
+						};
+					}
+
+					var fun = 'offset start'.split( ' ' );
+					for ( var i = 0 ; i < fun.length ; i++ ) {
+						this.funControls( fun[ i ] );
+					}
+
+					this.tweakOffsets(); /* gross, but necessary! */
+				};
+
+				this.loaded = function() {
+					this.layers = {};
+
+					var iframes = document.getElementsByTagName( 'iframe' );
+					for ( var i = 0 ; i < iframes.length ; i++ ) {
+						this.indexIframes( iframes[ i ] );
+					}
+
+					/* 
+					   this is probably more complicated than necessary, but want to make sure
+					   the frame order is based off the label, not the order the layer occurs
+					   in the document or the layer internal id from inkscape
+					*/
+
+					var sorting_is_lame = [];
+					var really_lame = {};
+					for ( var frame in this.layers ) {
+						var index = frame.replace( /^[^0-9]*/, "" ).replace( /[^0-9]*/, "" );
+						sorting_is_lame.push( index );
+						really_lame[ index ] = frame;
+					}
+					sorting_is_lame.sort();	
+
+					this.frames = [];
+					for ( var i = 0 ; i < sorting_is_lame.length ; i++ ) {
+						var index = sorting_is_lame[ i ];
+						var name = really_lame[ index ];
+						this.frames.push( name );
+					};
+
+					this.delay = 1000 / this.frames.length;
+					console.log( 'play order is:' + this.frames.join( ',' ) + ' and delay is ' + this.delay );
+
+					this.setControl( 'delay', this.delay );
+
+					this.eventHandlers();
+					this.go();
+				};
+
+				this.init = function( src ) {
+					var thiz = this;
+					var count = 8;
+
+					var target = document.getElementById( 'svgs_go_where' );
+					if ( !target ) {
+						alert( 'could not find #svgs_go_where' );
+						return;
+					}
+
+					this.iframes = [];
+
+					for ( var i = 0 ; i < count ; i++ ) {
+						var iframe = document.createElement( 'iframe' );
+						this.iframes.push( iframe );
+						iframe.onload = function() {
+							if ( --count == 0 ) { 
+								console.log( 'full steam ahead!' );
+								thiz.loaded();
+							}
+						};
+						iframe.onerror = function( e ) {
+							alert( e );
+						};
+						iframe.setAttribute( 'src', src );
+						target.appendChild( iframe );
+					}
+				};
+				this.init( src );
+			};
+
+			window.onload = function() { 
+				/* TODO: parse args from document.location */
+				var src = 'f.svg';
+				new AnimateInkscape( src );
+			}
+		</script>
+
+	</HEAD>
+
+	<BODY>
+		<div id="controls" class="retro_recessed">
+			<span class="retro_recessed">
+				start:
+				<input id="start_value" value="0"/>
+				<input id="start_range" type="range" min="-800" max="800" value="0" />
+			</span>
+			<span class="retro_recessed">
+				offset:
+				<input id="offset_value" value="0"/>
+				<input id="offset_range" type="range" min="-800" max="800" value="0" />
+			</span>
+			<span class="retro_recessed">
+				delay: 
+				<input id="delay_value" value="0"/>
+				<input id="delay_range" type="range" min="1" max="1000" value="0" />
+			</span>
+			<span class="retro_recessed">
+				border: 
+				<input id="border" type="checkbox"/>
+			</span>
+		</div>
+
+		<div id="svgs_go_where"></div>
+	</BODY>
+
+</HTML>
