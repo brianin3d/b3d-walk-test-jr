@@ -5,32 +5,75 @@
 		<style>
 			body {
 				font-family: Comic Sans MS, sans;
+				background:#AAAAAA;
+			}
+			.label {
+				display:inline-block; /* this is stupid... */
+				margin-left:0.5em;
+				width:4em;
 			}
 			iframe {
 				border:0px;
 				position: fixed; 
+				height:100%; /* this avoid scrollbars on firefox for some reason... */
 			}
 			.retro_recessed {
-				border-top:2px solid black;
-				border-left:2px solid black;
-				border-right:2px solid white;
-				border-bottom:2px solid white;
+				border-top:1px solid black;
+				border-left:1px solid black;
+				border-right:1px solid white;
+				border-bottom:1px solid white;
+			}
+			.retro_excessed { /* lol */
+				border-top:1px solid white;
+				border-left:1px solid white;
+				border-right:1px solid black;
+				border-bottom:1px solid black;
 			}
 			#controls {
-				padding:1em;
-				margin-bottom:1em;
+				width:24em;
+				display:none;
+				z-index:9001;
+				position:absolute;
+				right:3em;
+				top:0.5em;
+				background:#AAAAAA;
 			}
-			#controls span {
+			#toggle_controls {
+				display:block;
+				position:absolute;
+				font-weight:800;
+				font-size:large;
+				z-index:9001;
+				right:0.1em;
+			}
+			#controls div {
 				margin-right:3em;
+				margin-right:3em;
+				width:24em;
 			}
 			#svgs_go_where {
 				position:absolute;
 				width:4000px;
 			}
+
+			a {
+				position:absolute;
+				color:black;
+				bottom:2em;
+				right:2em;
+				text-decoration:none;
+			}
+			a:hover {
+				color:blue;
+				text-decoration:underline;
+				font-size:200%;
+				bottom:0.75em;
+				right:0.75em;
+			}
 		</style>
 
 		<script type="text/javascript">
-			var AnimateInkscape = function( src ) {
+			var AnimateInkscape = function( configuration ) {
 				this.id = function( id ) { 
 					return document.getElementById( id );
 				};
@@ -158,6 +201,7 @@
 					var offset = parseInt( this.id( 'offset_value' ).value );
 					var start = parseInt( this.id( 'start_value' ).value );
 					var width = parseInt( this.iframes[ 0 ].offsetWidth );
+					var height = parseInt( this.iframes[ 0 ].offsetHeight );
 
 					for ( var i = 0, x = start ; i < this.iframes.length ; i++, x += width + offset ) {
 						this.iframes[ i ].style.left = x + 'px';
@@ -202,6 +246,17 @@
 						this.funControls( fun[ i ] );
 					}
 
+					var controls = thiz.id( 'controls' );
+					controls.style.display = 'none';
+					this.id( 'toggle_controls' ).onclick = function() {
+						console.log( controls.style.display );
+						controls.style.display = (
+							'none' == controls.style.display 
+							? 'block' 
+							: 'none'
+						);
+					};
+
 					this.tweakOffsets(); /* gross, but necessary! */
 				};
 
@@ -235,18 +290,27 @@
 						this.frames.push( name );
 					};
 
-					this.delay = 1000 / this.frames.length;
+					if ( this.configuration.delay ) {
+						this.delay = this.configuration.delay;
+					} else {
+						this.delay = 1000 / this.frames.length;
+					}
+
 					console.log( 'play order is:' + this.frames.join( ',' ) + ' and delay is ' + this.delay );
 
 					this.setControl( 'delay', this.delay );
+					this.setControl( 'start', this.configuration.start );
+					this.setControl( 'offset', this.configuration.offset );
 
 					this.eventHandlers();
 					this.go();
 				};
 
-				this.init = function( src ) {
+				this.init = function( configuration ) {
 					var thiz = this;
 					var count = 8;
+
+					this.configuration = configuration;
 
 					var target = document.getElementById( 'svgs_go_where' );
 					if ( !target ) {
@@ -268,46 +332,69 @@
 						iframe.onerror = function( e ) {
 							alert( e );
 						};
-						iframe.setAttribute( 'src', src );
+						iframe.setAttribute( 'src', configuration.src );
 						target.appendChild( iframe );
 					}
 				};
-				this.init( src );
+				this.init( configuration );
+			};
+
+			/* still hard to believe something like this is not standard... */
+			parseArgs = function( query_string ) {
+				query_string = ( query_string || document.location.toString() ).replace( /.*\?/, '' );
+				var configuration = {
+					  src:'f.svg'
+					, start:0
+					, offset:0
+					, delay:0
+					, border:false
+				};
+				var converters = { start:parseFloat, offset:parseFloat, delay:parseFloat };
+				var args = query_string.split( '&' );
+				for ( var i = 0 ; i < args.length ; i++ ) {
+					var name = unescape( args[ i ].replace( /=.*/, '' ) );
+					var value = unescape( args[ i ].replace( /^[^=]*=/, '' ) );
+					var converter = converters[ name ];
+					if ( converter ) {
+						value = converter( value );
+					}
+					configuration[ name ] = value;
+				}
+				return configuration;
 			};
 
 			window.onload = function() { 
-				/* TODO: parse args from document.location */
-				var src = 'f.svg';
-				new AnimateInkscape( src );
+				new AnimateInkscape( parseArgs( document.location.toString() ) );
 			}
 		</script>
-
 	</HEAD>
 
 	<BODY>
-		<div id="controls" class="retro_recessed">
-			<span class="retro_recessed">
-				start:
+		<button id="toggle_controls">&#x2699;</button>
+		<div id="controls" class="retro_excessed">
+			<div class="retro_excessed">
+				<span class="label">start:</span>
 				<input id="start_value" value="0"/>
 				<input id="start_range" type="range" min="-800" max="800" value="0" />
-			</span>
-			<span class="retro_recessed">
-				offset:
+			</div>
+			<div class="retro_excessed">
+				<span class="label">offset:</span>
 				<input id="offset_value" value="0"/>
 				<input id="offset_range" type="range" min="-800" max="800" value="0" />
-			</span>
-			<span class="retro_recessed">
-				delay: 
+			</div>
+			<div class="retro_excessed">
+				<span class="label">delay:</span>
 				<input id="delay_value" value="0"/>
 				<input id="delay_range" type="range" min="1" max="1000" value="0" />
-			</span>
-			<span class="retro_recessed">
-				border: 
+			</div>
+			<div class="retro_excessed">
+				<span class="label">border:</span>
 				<input id="border" type="checkbox"/>
-			</span>
+			</div>
 		</div>
 
 		<div id="svgs_go_where"></div>
-	</BODY>
 
+		<a href="https://github.com/brianin3d/b3d-walk-test-jr/blob/master/svg_anim_test.html">[github]</a>
+	</BODY>
 </HTML>
