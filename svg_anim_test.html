@@ -224,11 +224,11 @@
 					var sorting_is_lame = [];
 					var really_lame = {};
 					for ( var frame in this.layers ) {
-						var index = frame.replace( /^[^0-9]*/, "" ).replace( /[^0-9]*/, "" );
+						var index = parseFloat( frame.replace( /^[^0-9]*/, "" ).replace( /[^0-9]*/, "" ) );
 						sorting_is_lame.push( index );
 						really_lame[ index ] = frame;
 					}
-					sorting_is_lame.sort();	
+					sorting_is_lame.sort( function( a, b ) { return a-b; } );
 
 					this.frames = [];
 					for ( var i = 0 ; i < sorting_is_lame.length ; i++ ) {
