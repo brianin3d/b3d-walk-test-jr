@@ -157,9 +157,7 @@
 				this.tweakOffsets = function() {
 					var offset = parseInt( this.id( 'offset_value' ).value );
 					var start = parseInt( this.id( 'start_value' ).value );
-
 					var width = parseInt( this.iframes[ 0 ].offsetWidth );
-					console.log( width );
 
 					for ( var i = 0, x = start ; i < this.iframes.length ; i++, x += width + offset ) {
 						this.iframes[ i ].style.left = x + 'px';
