@@ -1,72 +1,37 @@
-/*NaN 2>/dev/null
+package briain3d.animation.tweening;
 
-# ok, this is getting nuts...
-classpath=""
-for dep in http://repo1.maven.org/maven2/batik/batik-parser/1.6/batik-parser-1.6.jar http://repo1.maven.org/maven2/batik/batik-util/1.6/batik-util-1.6.jar ; do
-	base=$( basename ${dep} )
-	classpath="${classpath}${base}:"
-	if [ -f ${base} ] ; then
-		continue
-	fi
-	wget ${dep} || exit 1
-done
-
-classpath=${classpath}.
-
-if [ Tweenscaper.java -nt Tweenscaper.class ] ; then
-	javac -classpath ${classpath} Tweenscaper.java 
-	status=${?}
-	if [ 0 != ${status} ] ; then
-		exit ${status}
-	fi
-fi
-	
-java -classpath ${classpath} Tweenscaper ${*}
-exit ${?}
-
------
-
-thx to:
-
-* http://www.mkyong.com/java/how-to-read-xml-file-in-java-dom-parser/
-* http://www.mkyong.com/java/how-to-create-xml-file-in-java-dom/
-* http://viralpatel.net/blogs/java-xml-xpath-tutorial-parse-xml/
-
-*/
-
-import java.awt.geom.Point2D;//.Double;
+import java.awt.geom.Point2D;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Writer;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Scanner;
 import java.util.TreeMap;
-
-import java.util.concurrent.atomic.AtomicInteger; // thx Clive @ http://stackoverflow.com/questions/4520137/does-java-have-mutable-types-for-integer-float-double-long 
+import java.util.concurrent.atomic.AtomicInteger; 
 
 import javax.xml.namespace.NamespaceContext;
- 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
- 
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-
 import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathFactory;
 import javax.xml.xpath.XPathConstants;
-
-import java.util.Iterator;
+import javax.xml.xpath.XPathFactory;
 
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
@@ -79,46 +44,74 @@ import org.apache.batik.parser.ParseException;
 import org.apache.batik.parser.PathHandler;
 import org.apache.batik.parser.PathParser;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /** 
  *
+ * <P>
  * This will need some explanation...
+ * </P>
+ *
+ * <P>
+ * Thanks to these guys:
+ * </P>
+ *
+ * <OL>
+ *     <LI>http://www.mkyong.com/java/how-to-read-xml-file-in-java-dom-parser/</LI>
+ *     <LI>http://www.mkyong.com/java/how-to-create-xml-file-in-java-dom/</LI>
+ *     <LI>http://viralpatel.net/blogs/java-xml-xpath-tutorial-parse-xml/</LI>
+ *     <LI>Clive @ http://stackoverflow.com/questions/4520137/does-java-have-mutable-types-for-integer-float-double-long </LI>
+ * </OL>
  *
  * @author Brian Hammond
  *
  */
 public class Tweenscaper {
+	//private static final Logger LOGGER = Logger.getLogger( Tweenscaper.class );
+	private static Logger LOGGER = LogManager.getLogger( Tweenscaper.class.getSimpleName() );
+
 	private XPath xpath_;
+
+	private DocumentBuilderFactory documentBuilderFactory_;
+	private DocumentBuilder documentBuilder_;
+	private Document document_;
+	private StreamResult output_;
+
+	////
 
 	int LAME_TWEEN_COUNT = 6;
 	int LAME_POINT_COUNT = 400;
 	boolean LAME_ANGULAR = false;
+
+	////
+
+	public Tweenscaper() {
+	}
+
+	////
 
 	public static void main( String[] args ) throws Exception {
 		new Tweenscaper().run( args );
 	}
 
 	public void run( String[] args ) throws Exception {
-		//File fXmlFile = new File("/Users/mkyong/staff.xml");
-		DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-		DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-		Document doc = dBuilder.parse( System.in ); //fXmlFile);
-
-		//optional, but recommended
-		//read this - http://stackoverflow.com/questions/13786607/normalization-in-dom-parsing-with-java-how-does-it-work
-		doc.getDocumentElement().normalize();
-
-		this.tween( doc );
-
-		// write the content into xml file
-		TransformerFactory transformerFactory = TransformerFactory.newInstance();
-		Transformer transformer = transformerFactory.newTransformer();
-		DOMSource source = new DOMSource(doc);
-		StreamResult result = new StreamResult( System.out );// new File("C:\\file.xml"));
-		transformer.transform(source, result);
+		// TODO: arg parsing... may just do it with json...
+		this.setInput( System.in );
+		this.setOutput( System.out );
+		this.run();
 	}
 
-	public void log( Object lazyBastard ) {
-		System.err.println( new Date() + " - DEBUG - LOL - " + lazyBastard );
+	public void run() throws Exception {
+		this.tween( this.getInput() );
+		this.writeOutput();
+	}
+
+	public void writeOutput() throws Exception {
+		TransformerFactory transformerFactory = TransformerFactory.newInstance();
+		Transformer transformer = transformerFactory.newTransformer();
+		DOMSource source = new DOMSource( this.getInput() );
+		transformer.transform( source, this.getOutput() );
 	}
 
 	public void tween( Document document ) throws Exception {
@@ -138,12 +131,11 @@ public class Tweenscaper {
 			String label = g.getAttributes().getNamedItem( "inkscape:label" ).getNodeValue();
 			String numeric_label = label.replaceAll( "^[^0-9]*", "" ).replaceAll( "[^0-9.].*$", "" );
 			try {
-			double numeric_value = Double.valueOf( numeric_label );
-
-			//this.log( g + ":" + label + " : " + numeric_label + " : " + numeric_value );
-			sortedLayers.put( numeric_value, g );
+				double numeric_value = Double.valueOf( numeric_label );
+				LOGGER.trace( g + ":" + label + " : " + numeric_label + " : " + numeric_value );
+				sortedLayers.put( numeric_value, g );
 			} catch ( Exception e ) {
-				this.log( "skipping layer " + label );
+				LOGGER.info( "skipping layer " + label );
 			}
 		}
 			
@@ -166,8 +158,8 @@ public class Tweenscaper {
 	}
 
 	public void tween( Document document, Map< Double, Node > sortedLayers, Set< String > titles ) throws Exception {
-		this.log( "sorted layers:" + sortedLayers );
-		this.log( "paths with titles:" + titles );
+		LOGGER.info( "sorted layers:" + sortedLayers );
+		LOGGER.info( "paths with titles:" + titles );
 
 		int count = 1;
 		Map< Double, Node > newLayers = new TreeMap< Double, Node >();
@@ -194,11 +186,11 @@ public class Tweenscaper {
 			for ( String title : titles ) {
 				Node path = this.layersPath( document, id, title );
 				if ( null == path ) {
-					this.log( "there is no path titled " + title + " in layer.id:" + id + ", moving on" );
+					LOGGER.info( "there is no path titled " + title + " in layer.id:" + id + ", moving on" );
 					continue;
 				}
 
-				this.log( id + "." + title + " -> " + path );
+				LOGGER.info( id + "." + title + " -> " + path );
 
 				String key = id + "\t" + title;
 				List< Point2D.Double > normalizedPath = this.normalizePath(
@@ -215,7 +207,7 @@ public class Tweenscaper {
 			// put a clone of the original into newLayers 
 
 			newLayers.put( layerEntry.getKey(), layerEntry.getValue().cloneNode( true ) ); 
-			this.log( "add layer " + layerEntry.getKey() );
+			LOGGER.info( "add layer " + layerEntry.getKey() );
 
 			// keep old values
 
@@ -260,29 +252,29 @@ public class Tweenscaper {
 			Node newLayer = lastNode.cloneNode( true );
 
 			newLayers.put( frame_id, newLayer );
-			this.log( "add layer' " + frame_id + ", percent:" + percent );
+			LOGGER.info( "add layer' " + frame_id + ", percent:" + percent );
 
 			this.set( newLayer, "inkscape:label", newLabel );
 			this.set( newLayer, "id", newLabel );
 
-			this.log( "creating " + newLabel );
+			LOGGER.info( "creating " + newLabel );
 
 			for ( String title : titles ) {
 				List< Point2D.Double > previousPath = normalized_path_map.get( lastId + "\t" + title );
 				if ( null == previousPath ) {
-					this.log( title + " not found in " + lastId + ", skipping it" );
+					LOGGER.info( title + " not found in " + lastId + ", skipping it" );
 					continue;
 				}
 
 				List< Point2D.Double > nextPath = normalized_path_map.get( nextId + "\t" + title );
 				if ( null == nextPath ) {
-					this.log( title + " not found in " + nextId + ", keep on truckin'" );
+					LOGGER.info( title + " not found in " + nextId + ", keep on truckin'" );
 					continue;
 				}
 
 				Node currentPath  = this.node( newLayer, "//path[./title = '" + title + "']" );
 				if ( null == currentPath ) {
-					this.log( title + " not found in the new layer, and it should have been! ur boned!" );
+					LOGGER.info( title + " not found in the new layer, and it should have been! ur boned!" );
 					continue;
 				}
 
@@ -299,8 +291,7 @@ public class Tweenscaper {
 						nextPoint = nextPath.get( pointIndex );
 					} catch ( Exception e ) {
 						if ( null == nextPoint ) {
-							// should not happen
-							this.log( "ERROR: missing point " + pointIndex + " in " + nextId + "," + title + " only " + nextPath.size() + " points" );
+							LOGGER.error( "missing point " + pointIndex + " in " + nextId + "," + title + " only " + nextPath.size() + " points" );
 							continue;
 						}
 					}
@@ -372,7 +363,7 @@ public class Tweenscaper {
 					}
 
 					newPath.add( currentPoint );
-					//this.log( "between:" + previousPoint + " to " + nextPoint + " = " + pointDiff + " -> " + currentPoint );
+					//LOGGER.trace( "between:" + previousPoint + " to " + nextPoint + " = " + pointDiff + " -> " + currentPoint );
 
 // trying to do relative to last point on each path proved problematic... for for angularr :-(
 if ( !LAME_ANGULAR||null == previousPrior ) {
@@ -416,12 +407,12 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 			public void linetoAbs(float x, float y)    throws ParseException { movetoAbs( x, y ); }
 		};
 
-		this.log( "parsing:" + path );
+		LOGGER.debug( "parsing:" + path );
 
 		pp.setPathHandler( ph );
 		pp.parse( path );
 		
-		this.log( "parsed: " + serat );
+		LOGGER.debug( "parsed: " + serat );
 
 		return serat;
 	}
@@ -501,7 +492,7 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 		List< Point2D.Double > path = new ArrayList< Point2D.Double >();
 
 		double pathLength = this.pathLength( points );
-		this.log( "path " + pathLength + " and has " + points.size() + " points" );
+		LOGGER.info( "path " + pathLength + " and has " + points.size() + " points" );
 
 		Point2D.Double previous = null;
 
@@ -518,13 +509,13 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 			int share = ( int ) ( count * percent ) + 1;
 			sum += share;
 
-			//this.trace( distance + " / " + pathLength + " = " + percent + " so " + share + ", " + sum );
+			LOGGER.trace( distance + " / " + pathLength + " = " + percent + " so " + share + ", " + sum );
 			pointsPerSegment.add( new AtomicInteger( share ) );
 
 			previous = current;
 		}
 		
-		this.log( "need to jiggle: " + sum + " versus " + count );
+		LOGGER.info( "need to jiggle: " + sum + " versus " + count );
 
 		// "commence the jigglin"
 
@@ -532,7 +523,7 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 			this.jiggleBelly( sum - count, -1, pointsPerSegment );
 		} else {
 			if ( sum < count ) {
-				this.log( "huh... really?" );
+				LOGGER.info( "huh... really?" );
 				this.jiggleBelly( count - sum, 1, pointsPerSegment );
 			}
 		}
@@ -546,7 +537,7 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 		for ( Point2D.Double current : points ) {
 			int share = pointsPerSegment.get( segmentIndex++ ).intValue();
 			if ( 0 == share ) {
-				this.log( "ERROR: no points allocated for this segment!!!" );
+				LOGGER.error( ": no points allocated for this segment!!!" );
 				return null;
 			}
 
@@ -562,7 +553,7 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 				, pointDiff.getY() / share
 			);
 
-			//this.log( "norman: from " + previous + " to " + current + " in " + share + " segments: " + mod );
+			LOGGER.trace( "norman: from " + previous + " to " + current + " in " + share + " segments: " + mod );
 
 			for ( int i = 0 ; i < share ; i++ ) {
 
@@ -571,7 +562,7 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 					, previous.getY() + mod.getY() * i
 				);
 
-				//this.log( "norman>" + i + " > " + nu );
+				LOGGER.trace( "norman>" + i + " > " + nu );
 
 				path.add( nu );
 			}
@@ -580,9 +571,9 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 		}
 
 		if ( sum != count || path.size() != count ) {
-			this.log( "ERROR! path has wrong number of points:" + sum + " vs " + count + " and " + path.size() );
+			LOGGER.error( "path has wrong number of points:" + sum + " vs " + count + " and " + path.size() );
 		} else {
-			this.log( "new path length is good:" + sum + " vs " + count );
+			LOGGER.info( "new path length is good:" + sum + " vs " + count );
 		}
 
 		return path; 
@@ -595,14 +586,14 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 			sum += atomic.intValue();
 			sizeToSegment.put( -atomic.intValue(), atomic );
 		}
-		this.log( "by size: " + sizeToSegment + " need " + increment + " x " + count + " times" );
+		LOGGER.info( "by size: " + sizeToSegment + " need " + increment + " x " + count + " times" );
 
 		int lost = 0;
 		for ( AtomicInteger atomic : sizeToSegment.values() ) {
 			int share = atomic.intValue();
 
 			if ( increment < 0 && share == 2 ) {
-				this.log( "ERROR: did not modify enuff and now it is too late!" );
+				LOGGER.error( "ERROR: did not modify enuff and now it is too late!" );
 				return;
 			}
 
@@ -614,14 +605,14 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 
 			int nu = ( share + increment * toLose );
 			
-			//this.trace( "from " + share + ", modify " + toLose + " times to " + nu + ", so far " + lost + " versus " + count  );
+			LOGGER.trace( "from " + share + ", modify " + toLose + " times to " + nu + ", so far " + lost + " versus " + count  );
 			atomic.set( nu );
 
 			if ( lost == count ) {
 				return;
 			}
 			if ( lost > count ) {
-				this.log( "ERROR: jiggled to much!" + lost + " verus " + count );
+				LOGGER.error( "jiggled to much!" + lost + " verus " + count );
 				return;
 			}
 		}
@@ -675,5 +666,84 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 	
 	public void setXPath( XPath xpath ) {
 		this.xpath_ = xpath;
+	}
+	
+	////
+
+	public DocumentBuilderFactory getDocumentBuilderFactory() {
+		return (
+			null == this.documentBuilderFactory_
+			? this.documentBuilderFactory_ = DocumentBuilderFactory.newInstance()
+			: this.documentBuilderFactory_
+		);
+	}
+	
+	public void setDocumentBuilderFactory( DocumentBuilderFactory documentBuilderFactory ) {
+		this.documentBuilderFactory_ = documentBuilderFactory;
+	}
+
+	public DocumentBuilder getDocumentBuilder() throws Exception {
+		return (
+			null == this.documentBuilder_
+			? this.documentBuilder_ = this.getDocumentBuilderFactory().newDocumentBuilder()
+			: this.documentBuilder_
+		);
+	}
+	
+	public void setDocumentBuilder( DocumentBuilder documentBuilder ) {
+		this.documentBuilder_ = documentBuilder;
+	}
+
+	public Document getInput() {
+		return this.document_;
+	}
+	
+	public void setInput( Document document ) {
+		this.document_ = document;
+		//read this - http://stackoverflow.com/questions/13786607/normalization-in-dom-parsing-with-java-how-does-it-work
+		//optional, but recommended
+		this.document_.getDocumentElement().normalize();
+	}
+
+    public void setInput( InputStream in ) throws Exception {
+		this.setInput( this.getDocumentBuilder().parse( in ) );
+	}
+
+    public void setInput( InputStream in, String derp ) throws Exception {
+		this.setInput( this.getDocumentBuilder().parse( in, derp ) );
+	}
+
+    public void setInput( String in ) throws Exception {
+		this.setInput( this.getDocumentBuilder().parse( in ) );
+	}
+
+    public void setInput( File in ) throws Exception {
+		this.setInput( this.getDocumentBuilder().parse( in ) );
+	}
+
+	////
+
+	public StreamResult getOutput() {
+		return this.output_;
+	}
+	
+	public void setOutput( StreamResult output ) {
+		this.output_ = output;
+	}
+
+	public void setOutput( OutputStream out ) {
+		this.setOutput( new StreamResult( out ) );
+	}
+
+	public void setOutput( Writer out ) {
+		this.setOutput( new StreamResult( out ) );
+	}
+
+	public void setOutput( String out ) {
+		this.setOutput( new StreamResult( out ) );
+	}
+	
+	public void setOutput( File out ) {
+		this.setOutput( new StreamResult( out ) );
 	}
 };

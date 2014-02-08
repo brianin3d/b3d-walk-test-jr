@@ -1,0 +1,16 @@
+{
+    "configuration": {
+        "appenders": {
+            "Console": {
+                "PatternLayout": { "pattern": "%d %-5p %c{1}.%M.%L - %m%n" }, 
+                "name": "STDOUT"
+            }
+        }, 
+        "loggers": {
+            "root": {
+                "appender-ref": { "ref": "STDOUT" }, 
+                "level": "info"
+            }
+        }
+    }
+}
