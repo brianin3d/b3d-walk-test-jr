@@ -1,5 +1,7 @@
 package briain3d.animation.tweening;
 
+import briain3d.animation.tweening.batik.BasicPathHandler;
+
 import java.awt.geom.Point2D;
 
 import java.io.File;
@@ -326,34 +328,8 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 		return Math.atan2( dy, dx );
 	}
 
-	// http://xmlgraphics.apache.org/batik/using/parsers.html#examples
 	public List< Point2D > parsePath( String path ) throws Exception {
-		final List< Point2D > serat = new ArrayList< Point2D >();
-		PathParser pp = new PathParser();
-
-		// no curve support... 
-		// does batik have a better hook to get the rendered points for curves too?
-		PathHandler ph = new DefaultPathHandler() {
-			float ax = 0;
-			float ay = 0;
-			public void movetoRel(float xo, float yo)  throws ParseException { this.movetoAbs( ax + xo, ay + yo ); }
-			public void linetoRel(float xo, float yo)  throws ParseException { this.linetoAbs( ax + xo, ay + yo ); }
-			public void linetoHorizontalRel(float xo)  throws ParseException { this.linetoHorizontalRel( ax + xo ); }
-			public void linetoVerticalRel(float yo)    throws ParseException { this.linetoVerticalRel( ay + yo ); }
-			public void linetoHorizontalAbs(float x)   throws ParseException { this.linetoAbs( x, ay ); }
-			public void linetoVerticalAbs(float y)     throws ParseException { this.linetoAbs( ax, y ); }
-			public void movetoAbs(float x, float y)    throws ParseException { ax = x; ay = y; serat.add( new Point2D.Double( ax, y ) ); }
-			public void linetoAbs(float x, float y)    throws ParseException { movetoAbs( x, y ); }
-		};
-
-		LOGGER.debug( "parsing:" + path );
-
-		pp.setPathHandler( ph );
-		pp.parse( path );
-		
-		LOGGER.debug( "parsed: " + serat );
-
-		return serat;
+		return new BasicPathHandler().parse( path );
 	}
 
 	public String toString( List< Point2D > points, boolean hadZ ) {
