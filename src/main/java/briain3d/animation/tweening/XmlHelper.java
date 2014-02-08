@@ -69,6 +69,33 @@ public class XmlHelper {
 
 	////
 
+	public Map< Double, Layer > getLayers( int pointCount, Document document ) throws Exception {
+		Map< Double, Layer > sortedLayers = new TreeMap<Double, Layer>();
+
+		NodeList layers = this.nodes( document, INKSCAPE_LAYER_EXPRESSION );
+		for ( int i = 0 ; i < layers.getLength() ; i++ ) {
+			Node g = layers.item( i );
+			String label = this.get( g, INKSCAPE_LAYER_ID );
+
+			try {
+				double value = this.idToDouble( label );
+
+				Layer layer = this.makeLayer( pointCount, g, label );
+				if ( null == layer ) {
+					LOGGER.info( "skipping layer " + label );
+				} else {
+					LOGGER.trace( "layer: " + label + " @" + value + "TODO" );
+					sortedLayers.put( value, layer );
+				}
+			} catch ( Exception e ) {
+				LOGGER.info( "skipping layer " + label );
+				continue;
+			}
+		}
+			
+		return sortedLayers;
+	}
+
 	public Layer makeLayer( int pointCount, Node g, String label ) throws Exception {
 		NodeList paths = this.nodes( g, INKSCAPE_LAYER_PATHS_EXPRESSION );
 		if ( 0 == paths.getLength() ) {
@@ -97,69 +124,6 @@ public class XmlHelper {
 		}
 
 		return layer.getPaths().isEmpty() ? null : layer;
-	}
-
-	public Map< Double, Layer > getLayers( int pointCount, Document document ) throws Exception {
-		Map< Double, Layer > sortedLayers = new TreeMap<Double, Layer>();
-
-		NodeList layers = this.nodes( document, INKSCAPE_LAYER_EXPRESSION );
-		for ( int i = 0 ; i < layers.getLength() ; i++ ) {
-			Node g = layers.item( i );
-			String label = this.get( g, INKSCAPE_LAYER_ID );
-
-			try {
-				double value = this.idToDouble( label );
-
-				Layer layer = this.makeLayer( pointCount, g, label );
-				if ( null == layer ) {
-					LOGGER.info( "skipping layer " + label );
-				} else {
-					LOGGER.trace( "layer: " + label + " @" + value + "TODO" );
-					sortedLayers.put( value, layer );
-				}
-			} catch ( Exception e ) {
-				LOGGER.info( "skipping layer " + label );
-				continue;
-			}
-		}
-			
-		return sortedLayers;
-	}
-
-	////
-
-	public Map<Double, Node> getSortedLayers( Document document ) throws Exception {
-		Map<Double, Node> sortedLayers = new TreeMap<Double, Node>();
-		NodeList layers = this.nodes( document, INKSCAPE_LAYER_EXPRESSION );
-
-		for ( int i = 0 ; i < layers.getLength() ; i++ ) {
-			Node g = layers.item( i );
-			String label = g.getAttributes().getNamedItem( INKSCAPE_LAYER_ID ).getNodeValue();
-			String numeric_label = label.replaceAll( "^[^0-9]*", "" ).replaceAll( "[^0-9.].*$", "" );
-			try {
-				double numeric_value = Double.valueOf( numeric_label );
-				LOGGER.trace( g + ":" + label + " : " + numeric_label + " : " + numeric_value );
-				sortedLayers.put( numeric_value, g );
-			} catch ( Exception e ) {
-				LOGGER.info( "skipping layer " + label );
-			}
-		}
-			
-		return sortedLayers;
-	}
-
-	public Set< String > getTitles( Document document ) throws Exception {
-		NodeList titles = this.nodes( document, INKSCAPE_PATH_TITLE_EXPRESSION );
-		Set< String > uniqueTitles = new LinkedHashSet< String >();
-
-		for ( int i = 0 ; i < titles.getLength() ; i++ ) {
-			String title = titles.item( i ).getNodeValue().trim();
-			if ( !title.isEmpty() ) {
-				uniqueTitles.add( title );
-			}
-		}
-
-		return uniqueTitles;
 	}
 
 	////
