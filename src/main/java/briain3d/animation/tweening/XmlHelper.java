@@ -42,20 +42,26 @@ public class XmlHelper {
 	private DocumentBuilderFactory documentBuilderFactory_;
 	private DocumentBuilder documentBuilder_;
 
+	// TODO: make member variables and just uses these as defaults
+	public static final String INKSCAPE_LAYER_ID = "inkscape:label";
+	public static final String INKSCAPE_LAYER_EXPRESSION = "//g[@groupmode='layer']";
+	public static final String INKSCAPE_PATH_TITLE_EXPRESSION = "//path/title/text()";
+	public static final String INKSCAPE_PATH_IN_LAYER_EXPRESSION_TEMPLATE = "//g[@id='::ID::']/path[./title = '::TITLE::']";
+
 	////
 	// more inkscape specific
 
 	public Node layersPath( Document document, String id, String title ) throws Exception {
-		return this.node( document, "//g[@id='" + id + "']/path[./title = '" + title + "']" );
+		return this.node( document, this.template( INKSCAPE_PATH_IN_LAYER_EXPRESSION_TEMPLATE, "ID", id, "TITLE", title ) );
 	}
 
 	public Map<Double, Node> getSortedLayers( Document document ) throws Exception {
 		Map<Double, Node> sortedLayers = new TreeMap<Double, Node>();
-		NodeList layers = this.nodes( document, "//g[@groupmode='layer']" );
+		NodeList layers = this.nodes( document, INKSCAPE_LAYER_EXPRESSION );
 
 		for ( int i = 0 ; i < layers.getLength() ; i++ ) {
 			Node g = layers.item( i );
-			String label = g.getAttributes().getNamedItem( "inkscape:label" ).getNodeValue();
+			String label = g.getAttributes().getNamedItem( INKSCAPE_LAYER_ID ).getNodeValue();
 			String numeric_label = label.replaceAll( "^[^0-9]*", "" ).replaceAll( "[^0-9.].*$", "" );
 			try {
 				double numeric_value = Double.valueOf( numeric_label );
@@ -70,7 +76,7 @@ public class XmlHelper {
 	}
 
 	public Set< String > getTitles( Document document ) throws Exception {
-		NodeList titles = this.nodes( document, "//path/title/text()" );
+		NodeList titles = this.nodes( document, INKSCAPE_PATH_TITLE_EXPRESSION );
 		Set< String > uniqueTitles = new LinkedHashSet< String >();
 
 		for ( int i = 0 ; i < titles.getLength() ; i++ ) {
@@ -136,6 +142,18 @@ public class XmlHelper {
 	}
 
 	////
+	
+	public String template( String template, Object ... junk ) {
+		if ( 0 != junk.length % 2 ) {
+			throw new IllegalArgumentException( "should have even number of arguments" );
+		}
+		for ( int i = 0 ; i < junk.length ; i+= 2 ) {
+			template = template.replaceAll( "::" + junk[ i ] + "::", junk[ i + 1 ].toString() );
+		}
+		return template;
+	}
+
+	////
 
 	public XPath getXpath() {
 		return (
@@ -172,5 +190,4 @@ public class XmlHelper {
 	public void setDocumentBuilder( DocumentBuilder documentBuilder ) {
 		this.documentBuilder_ = documentBuilder;
 	}
-
 };
