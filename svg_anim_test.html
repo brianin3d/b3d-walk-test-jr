@@ -70,6 +70,11 @@
 				bottom:0.75em;
 				right:0.75em;
 			}
+			.alert {
+				z-index:9002;
+				font-size:x-large;
+				font-width:800;
+			}
 		</style>
 
 		<script type="text/javascript">
@@ -101,13 +106,25 @@
 					}
 				};
 
+				this.alert = function( message ) {
+					this.id( 'alert' ).innerHTML = message;
+				};	
+
 				this.indexIframes = function( iframe ) {
 					/* this is nuts: http://www.w3schools.com/jsref/prop_frame_contentdocument.asp */
 					var iframe_document  = ( iframe.contentWindow || iframe.contentDocument );
-					if ( iframe_document.document ) {
-						iframe_document = iframe_document.document;
+					try {
+						if ( iframe_document.document ) {
+							iframe_document = iframe_document.document;
+						}
+						this.findInkscapeLayers( iframe_document );
+					} catch( e ) {
+						this.alert(
+							'you need to put this in a place served up by http to avoid this nonsense:' + e 
+						);
+						return false;
 					}
-					this.findInkscapeLayers( iframe_document );
+					return true;
 				};
 
 				this.displayByName = function( name, display ) {
@@ -263,9 +280,16 @@
 				this.loaded = function() {
 					this.layers = {};
 
-					var iframes = document.getElementsByTagName( 'iframe' );
-					for ( var i = 0 ; i < iframes.length ; i++ ) {
-						this.indexIframes( iframes[ i ] );
+					for ( var i = 0 ; i < this.iframes.length ; i++ ) {
+						if( !this.indexIframes( this.iframes[ i ] ) ) {
+							this.layers = false;
+							break;
+						}
+					}
+					if ( !this.layers ) {
+						for ( var i = 0 ; i < this.iframes.length ; i++ ) {
+							this.iframes[ i ].setAttribute( 'src', '' );
+						}
 					}
 
 					/* 
@@ -277,7 +301,7 @@
 					var sorting_is_lame = [];
 					var really_lame = {};
 					for ( var frame in this.layers ) {
-						var index = parseFloat( frame.replace( /^[^0-9]*/, "" ).replace( /[^0-9]*/, "" ) );
+						var index = parseFloat( frame.replace( /^[^0-9]*/, "" ).replace( /[^0-9.]*/, "" ) );
 						sorting_is_lame.push( index );
 						really_lame[ index ] = frame;
 					}
@@ -314,7 +338,7 @@
 
 					var target = document.getElementById( 'svgs_go_where' );
 					if ( !target ) {
-						alert( 'could not find #svgs_go_where' );
+						this.alert( 'could not find #svgs_go_where' );
 						return;
 					}
 
@@ -396,5 +420,7 @@
 		<div id="svgs_go_where"></div>
 
 		<a href="https://github.com/brianin3d/b3d-walk-test-jr/blob/master/svg_anim_test.html">[github]</a>
+		
+		<div id="alert"></div>
 	</BODY>
 </HTML>

@@ -8,35 +8,104 @@
 			}
 			img {
 				position:absolute;
-				border:1px solid red;
 				width:600px;
+				top:2em;
 			}
 		</style>
 		<script type="text/javascript">
-			var barkin_mad = function( offset ) {
-				var images = document.getElementsByTagName( 'img' );
-				for ( var i = 0, x = -offset ; i < images.length ; i++, x += offset) {
-					images[ i ].setAttribute( 'style', 'left:' + x + 'px' );
+			var byId = function( id ) {
+				return document.getElementById( id );
+			};
+
+			var byTag = function( tag ) {
+				return document.getElementsByTagName( tag );
+			};
+
+			var change_offsets = function( start, offset ) {
+				byId( 'start_value' ).innerHTML = start;
+				byId( 'offset_value' ).innerHTML = offset;
+				var src = byId( 'src' ).value;
+				var border = ( byId( 'border' ).checked && 'border:1px solid red;' ) || '';
+
+				var images = byTag( 'img' );
+				for ( var i = 0, x = start ; i < images.length ; i++, x += offset) {
+					var image = images[ i ];
+					var style = 'left:' + x + 'px;z-index:-' + i + ';' + border;
+					image.setAttribute( 'style', style );
+					image.setAttribute( 'src', src );
 				}	
 			}
-			window.onload = function() {
-				var html = '';
-				var offset = 540;
-				for ( var i = 0, x = -offset ; i < 10 ; i++, x += offset ) {
-					html += '<img src="test.gif" style="left:' + x + 'px;z-index:' + x + '"/>\n';
+
+			var args = function() {
+				var map = {};
+				var args = document.location.toString().replace( /.*\?/, "" ).split( '&' );
+				for ( var i = 0 ; i < args.length ; i++ ) {
+					var kv = args[ i ].split( '=' );
+					map[ kv[ 0 ] ] = kv[ 1 ];
 				}
+				return map;
+			};
+			
+			var tweakOffset = function() {
+				change_offsets( 
+					  parseFloat( byId( 'start' ).value )
+					, parseFloat( byId( 'offset' ).value )
+				);
+			}
+
+			window.onload = function() {
+
+				var the_args = args();
+
+				var srcs = ( the_args[ 'images' ] || 'test.gif' ).split( ',' );
+				var src = srcs[ 0 ] ;
+
+				if ( the_args[ 'offset' ] ) {
+					byId( 'offset' ).setAttribute( 'value', parseFloat( the_args[ 'offset' ]  ) );
+				}
+				if ( the_args[ 'start' ] ) {
+					byId( 'start' ).setAttribute( 'value', parseFloat( the_args[ 'start' ]  ) );
+				}
+
+				var html = '';
+				for ( var i = 0 ; i < 10 ; i++ ) {
+					html += '<img src="' + src + '"/>\n';
+				}
+
 				document.body.innerHTML += html;
 
-				document.getElementById( 'range' ).onchange = function( e ) {
-					var value = parseInt( e.target.value );
-					barkin_mad( value );
-					document.getElementById( 'vl' ).innerHTML = value;
-				};
+				for ( var i = 0 ; i < srcs.length ; i++ ) {
+					var src = srcs[ i ];
+					var option = document.createElement( 'option' );
+					option.setAttribute( 'value', src );
+					option.appendChild( document.createTextNode( src ) )
+					byId( 'src' ).appendChild( option );
+				}
+
+				var ids = "start offset src border".split( " " );
+				for ( var i = 0 ; i < ids.length ; i++ ) {
+					byId( ids[ i ] ).onchange = tweakOffset;
+				}
+				byId( 'border' ).click = tweakOffset;
+				tweakOffset();
 			};
 		</script>
 	</HEAD>
-	<div style="top:600px;position:absolute;">
-		<span id="vl">540</span>
-		<input id="range" type="range" min="200" max="800" value="540" />
+	<div>
+		<span>
+			start:
+			<span id="start_value">0</span>
+			<input id="start" type="range" min="-800" max="800" value="0" />
+		</span>
+		<span>
+		offset:
+			<span id="offset_value">540</span>
+			<input id="offset" type="range" min="-800" max="800" value="540" />
+		</span>
+		<span>
+			border: 
+			<input id="border" type="checkbox"/>
+		</span>
+		<select id="src"></select>
 	</div>
 </HTML>

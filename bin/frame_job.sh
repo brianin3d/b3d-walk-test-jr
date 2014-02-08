@@ -186,8 +186,10 @@ _frame_job_main() {
 
 	####
 	# cleanup	
-	if [ "" != "${KEEP_TMP_FILES}" ] ; then
+	if [ "" = "${KEEP_TMP_FILES}" ] ; then
 		rm -f ${tmp_file}*
+	else
+		echo temp files are: ${tmp_file}*
 	fi
 }
 
