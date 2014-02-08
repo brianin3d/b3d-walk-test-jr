@@ -68,13 +68,9 @@ import org.apache.logging.log4j.Logger;
  *
  */
 public class Tweenscaper {
-	//private static final Logger LOGGER = Logger.getLogger( Tweenscaper.class );
 	private static Logger LOGGER = LogManager.getLogger( Tweenscaper.class.getSimpleName() );
 
-	private XPath xpath_;
-
-	private DocumentBuilderFactory documentBuilderFactory_;
-	private DocumentBuilder documentBuilder_;
+	private XmlHelper xmlHelper_ = new XmlHelper();
 	private Document document_;
 	private StreamResult output_;
 
@@ -108,53 +104,15 @@ public class Tweenscaper {
 	}
 
 	public void writeOutput() throws Exception {
-		TransformerFactory transformerFactory = TransformerFactory.newInstance();
-		Transformer transformer = transformerFactory.newTransformer();
-		DOMSource source = new DOMSource( this.getInput() );
-		transformer.transform( source, this.getOutput() );
+		this.getXmlHelper().write( this.getInput(), this.getOutput() );
 	}
 
 	public void tween( Document document ) throws Exception {
 		this.tween( 
 			document
-			, this.getSortedLayers( document )
-			, this.getTitles( document )
+			, this.getXmlHelper().getSortedLayers( document )
+			, this.getXmlHelper().getTitles( document )
 		);
-	}
-
-	public Map<Double, Node> getSortedLayers( Document document ) throws Exception {
-		Map<Double, Node> sortedLayers = new TreeMap<Double, Node>();
-		NodeList layers = this.nodes( document, "//g[@groupmode='layer']" );
-
-		for ( int i = 0 ; i < layers.getLength() ; i++ ) {
-			Node g = layers.item( i );
-			String label = g.getAttributes().getNamedItem( "inkscape:label" ).getNodeValue();
-			String numeric_label = label.replaceAll( "^[^0-9]*", "" ).replaceAll( "[^0-9.].*$", "" );
-			try {
-				double numeric_value = Double.valueOf( numeric_label );
-				LOGGER.trace( g + ":" + label + " : " + numeric_label + " : " + numeric_value );
-				sortedLayers.put( numeric_value, g );
-			} catch ( Exception e ) {
-				LOGGER.info( "skipping layer " + label );
-			}
-		}
-			
-		return sortedLayers;
-	}
-
-	public Set< String > getTitles( Document document ) throws Exception {
-		// TODO: make sure this maintains the order in the dom
-		NodeList titles = this.nodes( document, "//path/title/text()" );
-		Set< String > uniqueTitles = new HashSet< String >();
-
-		for ( int i = 0 ; i < titles.getLength() ; i++ ) {
-			String title = titles.item( i ).getNodeValue().trim();
-			if ( !title.isEmpty() ) {
-				uniqueTitles.add( title );
-			}
-		}
-
-		return uniqueTitles;
 	}
 
 	public void tween( Document document, Map< Double, Node > sortedLayers, Set< String > titles ) throws Exception {
@@ -172,10 +130,10 @@ public class Tweenscaper {
 		Node firstNode = null;
 		String firstId = null;
 
-		Map< String, List< Point2D.Double > > normalized_path_map = new HashMap< String, List< Point2D.Double > >();
+		Map< String, List< Point2D > > normalized_path_map = new HashMap< String, List< Point2D > >();
 
 		for ( Map.Entry< Double, Node > layerEntry : sortedLayers.entrySet() ) {
-			String id = this.value( layerEntry.getValue(), "id" );
+			String id = this.getXmlHelper().value( layerEntry.getValue(), "id" );
 
 			if ( null == firstNode ) {
 				firstValue = layerEntry.getKey();
@@ -184,7 +142,7 @@ public class Tweenscaper {
 			}
 
 			for ( String title : titles ) {
-				Node path = this.layersPath( document, id, title );
+				Node path = this.getXmlHelper().layersPath( document, id, title );
 				if ( null == path ) {
 					LOGGER.info( "there is no path titled " + title + " in layer.id:" + id + ", moving on" );
 					continue;
@@ -193,9 +151,9 @@ public class Tweenscaper {
 				LOGGER.info( id + "." + title + " -> " + path );
 
 				String key = id + "\t" + title;
-				List< Point2D.Double > normalizedPath = this.normalizePath(
+				List< Point2D > normalizedPath = this.normalizePath(
 					LAME_POINT_COUNT // TODO: externalize this
-					, this.parsePath( this.value( path, "d" ) ) // d means "path", makes perfect sense :-P
+					, this.parsePath( this.getXmlHelper().value( path, "d" ) ) // d means "path", makes perfect sense :-P
 				);
 				normalized_path_map.put( key, normalizedPath );
 			}
@@ -237,7 +195,7 @@ public class Tweenscaper {
 		}
 	}
 
-	public void inbetween( Document document, int count, double lastKey, Node lastNode, String lastId, double nextKey, Node nextNode, String nextId, Set< String > titles, Map< Double, Node > newLayers, Map< String, List< Point2D.Double > > normalized_path_map ) throws Exception {
+	public void inbetween( Document document, int count, double lastKey, Node lastNode, String lastId, double nextKey, Node nextNode, String nextId, Set< String > titles, Map< Double, Node > newLayers, Map< String, List< Point2D > > normalized_path_map ) throws Exception {
 		if ( null == lastNode || null == nextNode ) return;
 
 		count = LAME_TWEEN_COUNT;
@@ -254,39 +212,39 @@ public class Tweenscaper {
 			newLayers.put( frame_id, newLayer );
 			LOGGER.info( "add layer' " + frame_id + ", percent:" + percent );
 
-			this.set( newLayer, "inkscape:label", newLabel );
-			this.set( newLayer, "id", newLabel );
+			this.getXmlHelper().set( newLayer, "inkscape:label", newLabel );
+			this.getXmlHelper().set( newLayer, "id", newLabel );
 
 			LOGGER.info( "creating " + newLabel );
 
 			for ( String title : titles ) {
-				List< Point2D.Double > previousPath = normalized_path_map.get( lastId + "\t" + title );
+				List< Point2D > previousPath = normalized_path_map.get( lastId + "\t" + title );
 				if ( null == previousPath ) {
 					LOGGER.info( title + " not found in " + lastId + ", skipping it" );
 					continue;
 				}
 
-				List< Point2D.Double > nextPath = normalized_path_map.get( nextId + "\t" + title );
+				List< Point2D > nextPath = normalized_path_map.get( nextId + "\t" + title );
 				if ( null == nextPath ) {
 					LOGGER.info( title + " not found in " + nextId + ", keep on truckin'" );
 					continue;
 				}
 
-				Node currentPath  = this.node( newLayer, "//path[./title = '" + title + "']" );
+				Node currentPath = this.getXmlHelper().node( newLayer, "//path[./title = '" + title + "']" );
 				if ( null == currentPath ) {
 					LOGGER.info( title + " not found in the new layer, and it should have been! ur boned!" );
 					continue;
 				}
 
-				List< Point2D.Double > newPath = new ArrayList< Point2D.Double >();
+				List< Point2D > newPath = new ArrayList< Point2D >();
 				int pointIndex = 0;
 
-				Point2D.Double previousPrior = null;
-				Point2D.Double nextPrior = null;
-				Point2D.Double currentPrior = null;
+				Point2D previousPrior = null;
+				Point2D nextPrior = null;
+				Point2D currentPrior = null;
 
-				for ( Point2D.Double previousPoint : previousPath ) {
-					Point2D.Double nextPoint = null;
+				for ( Point2D previousPoint : previousPath ) {
+					Point2D nextPoint = null;
 					try { 
 						nextPoint = nextPath.get( pointIndex );
 					} catch ( Exception e ) {
@@ -298,12 +256,12 @@ public class Tweenscaper {
 					pointIndex++;
 
 					// finally: make the inbetween points
-					Point2D.Double currentPoint = null;
+					Point2D currentPoint = null;
 
 					// for the first point, do a straight inbetween
 					if ( null == previousPrior || null == nextPrior ) {
 
-						Point2D.Double pointDiff = new Point2D.Double(
+						Point2D pointDiff = new Point2D.Double(
 							  nextPoint.getX() - previousPoint.getX() 
 							, nextPoint.getY() - previousPoint.getY()
 						);
@@ -336,21 +294,21 @@ public class Tweenscaper {
 						} else {
 							// uses diff tweening... slightly better than angular
 
-							Point2D.Double previousDiff = new Point2D.Double(
+							Point2D previousDiff = new Point2D.Double(
 								  previousPoint.getX() - previousPrior.getX()
 								, previousPoint.getY() - previousPrior.getY()
 							);
-							Point2D.Double nextDiff = new Point2D.Double(
+							Point2D nextDiff = new Point2D.Double(
 								  nextPoint.getX() - nextPrior.getX()
 								, nextPoint.getY() - nextPrior.getY()
 							);
 
-							Point2D.Double diffDiff = new Point2D.Double(
+							Point2D diffDiff = new Point2D.Double(
 								  nextDiff.getX() - previousDiff.getX()
 								, nextDiff.getY() - previousDiff.getY()
 							);
 
-							Point2D.Double currentDiff = new Point2D.Double(
+							Point2D currentDiff = new Point2D.Double(
 								  previousDiff.getX() + diffDiff.getX() * percent
 								, previousDiff.getY() + diffDiff.getY() * percent
 							);
@@ -374,12 +332,12 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 } // snit
 				}
 
-				this.set( currentPath, "d", this.toString( newPath, true /* FIXME:  need to track this */  ) );
+				this.getXmlHelper().set( currentPath, "d", this.toString( newPath, true /* FIXME:  need to track this */  ) );
 			}
 		}
 	}
 
-	public double angle( Point2D.Double a, Point2D.Double b ) {
+	public double angle( Point2D a, Point2D b ) {
 		// toa = o/a = dy/dx
 		double dy = b.getY() - a.getY();
 		double dx = b.getX() - a.getX();
@@ -388,8 +346,8 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 	}
 
 	// http://xmlgraphics.apache.org/batik/using/parsers.html#examples
-	public List< Point2D.Double > parsePath( String path ) throws Exception {
-		final List< Point2D.Double > serat = new ArrayList< Point2D.Double >();
+	public List< Point2D > parsePath( String path ) throws Exception {
+		final List< Point2D > serat = new ArrayList< Point2D >();
 		PathParser pp = new PathParser();
 
 		// no curve support... 
@@ -417,10 +375,10 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 		return serat;
 	}
 
-	public String toString( List< Point2D.Double > points, boolean hadZ ) {
+	public String toString( List< Point2D > points, boolean hadZ ) {
 		StringBuilder bob = new StringBuilder( "m" );
-		Point2D.Double previous = null;
-		for( Point2D.Double current : points ) {
+		Point2D previous = null;
+		for( Point2D current : points ) {
 			double x = current.getX();
 			double y = current.getY();
 			if ( null != previous ) {
@@ -444,12 +402,12 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 		return bob.toString();
 	}
 
-	public double pathLength( List< Point2D.Double > points ) {
+	public double pathLength( List< Point2D > points ) {
 		double sum = 0;
 
-		Point2D.Double previous = points.get( points.size() - 1 );
+		Point2D previous = points.get( points.size() - 1 );
 
-		for( Point2D.Double current : points ) {
+		for( Point2D current : points ) {
 			sum += current.distance( previous );
 			previous = current;
 		}
@@ -482,19 +440,19 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 	 * </p>
 	 *
 	 * @param count number of points in the new path
-	 * @param points list of Point2D.Double in the original path
+	 * @param points list of Point2D in the original path
 	 *
 	 * @return new path with uniform distribution of {count} points along the original path
 	 *
 	 *
 	 */
-	public List< Point2D.Double > normalizePath( int count, List< Point2D.Double > points ) {
-		List< Point2D.Double > path = new ArrayList< Point2D.Double >();
+	public List< Point2D > normalizePath( int count, List< Point2D > points ) {
+		List< Point2D > path = new ArrayList< Point2D >();
 
 		double pathLength = this.pathLength( points );
 		LOGGER.info( "path " + pathLength + " and has " + points.size() + " points" );
 
-		Point2D.Double previous = null;
+		Point2D previous = null;
 
 		// first work out how many points per segment
 
@@ -503,7 +461,7 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 		List< AtomicInteger > pointsPerSegment = new ArrayList< AtomicInteger >();
 
 		previous = points.get( points.size() - 1 );
-		for ( Point2D.Double current : points ) {
+		for ( Point2D current : points ) {
 			double distance = current.distance( previous );
 			double percent = distance / pathLength;
 			int share = ( int ) ( count * percent ) + 1;
@@ -534,7 +492,7 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 
 		int segmentIndex = 0;
 		previous = points.get( points.size() - 1 );
-		for ( Point2D.Double current : points ) {
+		for ( Point2D current : points ) {
 			int share = pointsPerSegment.get( segmentIndex++ ).intValue();
 			if ( 0 == share ) {
 				LOGGER.error( ": no points allocated for this segment!!!" );
@@ -544,11 +502,11 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 			sum += share;
 
 			double distance = current.distance( previous );
-			Point2D.Double pointDiff = new Point2D.Double(
+			Point2D pointDiff = new Point2D.Double(
 				  ( current.getX() - previous.getX() )
 				, ( current.getY() - previous.getY() )
 			);
-			Point2D.Double mod = new Point2D.Double(
+			Point2D mod = new Point2D.Double(
 				  pointDiff.getX() / share
 				, pointDiff.getY() / share
 			);
@@ -557,7 +515,7 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 
 			for ( int i = 0 ; i < share ; i++ ) {
 
-				Point2D.Double nu = new Point2D.Double(
+				Point2D nu = new Point2D.Double(
 					  previous.getX() + mod.getX() * i
 					, previous.getY() + mod.getY() * i
 				);
@@ -618,81 +576,15 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 		}
 	}
 
-	public String toString( List< Point2D.Double > normalized, String path ) {
+	public String toString( List< Point2D > normalized, String path ) {
 		return this.toString( normalized, path.endsWith( "z" ) );
 	}
 
 	public String normalizePath( int count, String path ) throws Exception {
 		return this.toString( this.normalizePath( count, this.parsePath( path ) ), path );
 	}
-
-	public Node layersPath( Document document, String id, String title ) throws Exception {
-		return this.node( document, "//g[@id='" + id + "']/path[./title = '" + title + "']" );
-	}
-
-	public void set( Node node, String name, String value ) {
-		// thx http://www.mkyong.com/java/how-to-modify-xml-file-in-java-dom-parser/
-		node.getAttributes().getNamedItem( name ).setTextContent( value ); // this is awful
-	}
-
-	////
-
-	public NodeList nodes( Document document, String expression ) throws Exception {
-		//NodeList nodeList = (NodeList) xPath.compile(expression).evaluate(xmlDocument, XPathConstants.NODESET);
-		return ( NodeList ) this.getXpath().compile( expression ).evaluate( document, XPathConstants.NODESET );
-	}
-	
-	public Node node( Object document, String expression ) throws Exception {
-		//Node node = (Node) xPath.compile(expression).evaluate(xmlDocument, XPathConstants.NODE);
-		return ( Node ) this.getXpath().compile( expression ).evaluate( document, XPathConstants.NODE );
-	}
-
-	public String value( Node node, String item ) {
-		return node.getAttributes().getNamedItem( item ).getNodeValue(); // seriously?
-	}
-
-	public String value( Document document, String expression ) throws Exception {
-		return this.getXpath().compile( expression ).evaluate( document );
-	}
-	
-	/////
-
-	public XPath getXpath() {
-		if ( null == this.xpath_ ) {
-			this.xpath_ = XPathFactory.newInstance().newXPath();
-		}
-		return this.xpath_;
-	}
-	
-	public void setXPath( XPath xpath ) {
-		this.xpath_ = xpath;
-	}
 	
 	////
-
-	public DocumentBuilderFactory getDocumentBuilderFactory() {
-		return (
-			null == this.documentBuilderFactory_
-			? this.documentBuilderFactory_ = DocumentBuilderFactory.newInstance()
-			: this.documentBuilderFactory_
-		);
-	}
-	
-	public void setDocumentBuilderFactory( DocumentBuilderFactory documentBuilderFactory ) {
-		this.documentBuilderFactory_ = documentBuilderFactory;
-	}
-
-	public DocumentBuilder getDocumentBuilder() throws Exception {
-		return (
-			null == this.documentBuilder_
-			? this.documentBuilder_ = this.getDocumentBuilderFactory().newDocumentBuilder()
-			: this.documentBuilder_
-		);
-	}
-	
-	public void setDocumentBuilder( DocumentBuilder documentBuilder ) {
-		this.documentBuilder_ = documentBuilder;
-	}
 
 	public Document getInput() {
 		return this.document_;
@@ -706,19 +598,19 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 	}
 
     public void setInput( InputStream in ) throws Exception {
-		this.setInput( this.getDocumentBuilder().parse( in ) );
+		this.setInput( this.getXmlHelper().read( in ) );
 	}
 
     public void setInput( InputStream in, String derp ) throws Exception {
-		this.setInput( this.getDocumentBuilder().parse( in, derp ) );
+		this.setInput( this.getXmlHelper().read( in, derp ) );
 	}
 
     public void setInput( String in ) throws Exception {
-		this.setInput( this.getDocumentBuilder().parse( in ) );
+		this.setInput( this.getXmlHelper().read( in ) );
 	}
 
     public void setInput( File in ) throws Exception {
-		this.setInput( this.getDocumentBuilder().parse( in ) );
+		this.setInput( this.getXmlHelper().read( in ) );
 	}
 
 	////
@@ -745,5 +637,15 @@ if ( !LAME_ANGULAR||null == previousPrior ) {
 	
 	public void setOutput( File out ) {
 		this.setOutput( new StreamResult( out ) );
+	}
+
+	////
+
+	public XmlHelper getXmlHelper() {
+		return this.xmlHelper_;
+	}
+	
+	public void setXmlHelper( XmlHelper xmlHelper ) {
+		this.xmlHelper_ = xmlHelper;
 	}
 };
