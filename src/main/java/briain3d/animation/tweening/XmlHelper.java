@@ -1,5 +1,8 @@
 package briain3d.animation.tweening;
 
+import briain3d.animation.tweening.model.Layer;
+import briain3d.animation.tweening.model.Path;
+
 import java.io.File;
 import java.io.InputStream;
 import java.util.LinkedHashSet;
@@ -42,11 +45,14 @@ public class XmlHelper {
 	private DocumentBuilderFactory documentBuilderFactory_;
 	private DocumentBuilder documentBuilder_;
 
+	private PathNormalizer pathNormalizer_;
+
 	// TODO: make member variables and just uses these as defaults
-	public static final String INKSCAPE_LAYER_ID = "inkscape:label";
 	public static final String INKSCAPE_LAYER_EXPRESSION = "//g[@groupmode='layer']";
-	public static final String INKSCAPE_PATH_TITLE_EXPRESSION = "//path/title/text()";
+	public static final String INKSCAPE_LAYER_ID = "inkscape:label";
+	public static final String INKSCAPE_LAYER_PATHS_EXPRESSION = "path[./title != '']";
 	public static final String INKSCAPE_PATH_IN_LAYER_EXPRESSION_TEMPLATE = "//g[@id='::ID::']/path[./title = '::TITLE::']";
+	public static final String INKSCAPE_PATH_TITLE_EXPRESSION = "//path/title/text()";
 
 	////
 	// more inkscape specific
@@ -54,6 +60,73 @@ public class XmlHelper {
 	public Node layersPath( Document document, String id, String title ) throws Exception {
 		return this.node( document, this.template( INKSCAPE_PATH_IN_LAYER_EXPRESSION_TEMPLATE, "ID", id, "TITLE", title ) );
 	}
+
+	////
+
+	public double idToDouble( String id ) {
+		return Double.valueOf( id.replaceAll( "^[^0-9]*", "" ).replaceAll( "[^0-9.].*$", "" ) );
+	}
+
+	////
+
+	public Layer makeLayer( int pointCount, Node g, String label ) throws Exception {
+		NodeList paths = this.nodes( g, INKSCAPE_LAYER_PATHS_EXPRESSION );
+		if ( 0 == paths.getLength() ) {
+			LOGGER.info( "no titled paths found in" + label + ", ignoring it" );
+			return null;
+		}
+		LOGGER.info( "found " + paths.getLength() + " in " + label );
+
+		Layer layer = new Layer( g );
+		for ( int j = 0 ; j < paths.getLength() ; j++ ) {
+			Node path = paths.item( j );
+			String title = this.value( path, "title" ).trim();
+			if ( title.isEmpty() ) {
+				continue; // should no happen
+			}
+				
+			Path nuPath = new Path(
+				this.getPathNormalizer().normalizePath(
+					pointCount
+					,  this.get( path, "d" )
+				)
+			);
+
+			layer.getPaths().put( title, nuPath );
+			LOGGER.info( "hi>" + path + " x " + title );
+		}
+
+		return layer.getPaths().isEmpty() ? null : layer;
+	}
+
+	public Map< Double, Layer > getLayers( int pointCount, Document document ) throws Exception {
+		Map< Double, Layer > sortedLayers = new TreeMap<Double, Layer>();
+
+		NodeList layers = this.nodes( document, INKSCAPE_LAYER_EXPRESSION );
+		for ( int i = 0 ; i < layers.getLength() ; i++ ) {
+			Node g = layers.item( i );
+			String label = this.get( g, INKSCAPE_LAYER_ID );
+
+			try {
+				double value = this.idToDouble( label );
+
+				Layer layer = this.makeLayer( pointCount, g, label );
+				if ( null == layer ) {
+					LOGGER.info( "skipping layer " + label );
+				} else {
+					LOGGER.trace( "layer: " + label + " @" + value + "TODO" );
+					sortedLayers.put( value, layer );
+				}
+			} catch ( Exception e ) {
+				LOGGER.info( "skipping layer " + label );
+				continue;
+			}
+		}
+			
+		return sortedLayers;
+	}
+
+	////
 
 	public Map<Double, Node> getSortedLayers( Document document ) throws Exception {
 		Map<Double, Node> sortedLayers = new TreeMap<Double, Node>();
@@ -91,6 +164,10 @@ public class XmlHelper {
 
 	////
 
+	public String get( Node node, String name ) { 
+		return node.getAttributes().getNamedItem( name ).getNodeValue();
+	}
+
 	public void set( Node node, String name, String value ) {
 		node.getAttributes().getNamedItem( name ).setTextContent( value );
 	}
@@ -115,7 +192,6 @@ public class XmlHelper {
 
 	////
 
-
 	public void write( Document document, StreamResult out ) throws Exception {
 		TransformerFactory transformerFactory = TransformerFactory.newInstance();
 		Transformer transformer = transformerFactory.newTransformer();
@@ -125,19 +201,18 @@ public class XmlHelper {
 
 	////
 
-	public NodeList nodes( Document document, String expression ) throws Exception {
+	// document should be a Document or Node
+	public NodeList nodes( Object document, String expression ) throws Exception {
 		return ( NodeList ) this.getXpath().compile( expression ).evaluate( document, XPathConstants.NODESET );
 	}
 
+	// document should be a Document or Node
 	public Node node( Object document, String expression ) throws Exception {
 		return ( Node ) this.getXpath().compile( expression ).evaluate( document, XPathConstants.NODE );
 	}
 
-	public String value( Node node, String item ) {
-		return node.getAttributes().getNamedItem( item ).getNodeValue(); // seriously?
-	}
-
-	public String value( Document document, String expression ) throws Exception {
+	// document should be a Document or Node
+	public String value( Object document, String expression ) throws Exception {
 		return this.getXpath().compile( expression ).evaluate( document );
 	}
 
@@ -189,5 +264,17 @@ public class XmlHelper {
 	
 	public void setDocumentBuilder( DocumentBuilder documentBuilder ) {
 		this.documentBuilder_ = documentBuilder;
+	}
+
+	public PathNormalizer getPathNormalizer() {
+		return (
+			null == this.pathNormalizer_
+			? this.pathNormalizer_ = new PathNormalizer()
+			: this.pathNormalizer_
+		);
+	}
+	
+	public void setPathNormalizer( PathNormalizer pathNormalizer ) {
+		this.pathNormalizer_ = pathNormalizer;
 	}
 };
