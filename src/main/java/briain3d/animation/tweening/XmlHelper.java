@@ -41,11 +41,17 @@ import org.apache.logging.log4j.Logger;
 public class XmlHelper {
 	private static Logger LOGGER = LogManager.getLogger( XmlHelper.class.getSimpleName() );
 
-	private XPath xpath_;
-	private DocumentBuilderFactory documentBuilderFactory_;
-	private DocumentBuilder documentBuilder_;
+	private transient XPath xpath_;
+	private transient DocumentBuilderFactory documentBuilderFactory_;
+	private transient DocumentBuilder documentBuilder_;
 
 	private PathNormalizer pathNormalizer_;
+
+	public static final String DEFAULT_LAYER_LABEL_PATTERN = ".*[0-9]+.*";
+	private String layerLabelPattern_ = DEFAULT_LAYER_LABEL_PATTERN;
+
+	public static final String DEFAULT_TITLE_PATTERN = ".*";
+	private String titlePattern_ = DEFAULT_TITLE_PATTERN;
 
 	// TODO: make member variables and just uses these as defaults
 	public static final String INKSCAPE_LAYER_EXPRESSION = "//g[@groupmode='layer']";
@@ -67,6 +73,14 @@ public class XmlHelper {
 		return Double.valueOf( id.replaceAll( "^[^0-9]*", "" ).replaceAll( "[^0-9.].*$", "" ) );
 	}
 
+	public boolean layerMatches( String label ) {
+		return label.matches( this.getLayerLabelPattern() );
+	}
+
+	public boolean titleMatches( String value ) {
+		return value.matches( this.getTitlePattern() );
+	}
+
 	////
 
 	public Map< Double, Layer > getLayers( int pointCount, Document document ) throws Exception {
@@ -76,6 +90,11 @@ public class XmlHelper {
 		for ( int i = 0 ; i < layers.getLength() ; i++ ) {
 			Node g = layers.item( i );
 			String label = this.get( g, INKSCAPE_LAYER_ID );
+
+			if ( !this.layerMatches( label ) ) {
+				LOGGER.info( "label does not match pattern, skipping layer " + label );
+				continue;
+			}
 
 			try {
 				double value = this.idToDouble( label );
@@ -108,8 +127,10 @@ public class XmlHelper {
 		for ( int j = 0 ; j < paths.getLength() ; j++ ) {
 			Node path = paths.item( j );
 			String title = this.value( path, "title" ).trim();
-			if ( title.isEmpty() ) {
-				continue; // should no happen
+
+			if ( title.isEmpty() || !this.titleMatches( title ) ) {
+				LOGGER.info( "skipping path " + title );
+				continue; 
 			}
 				
 			Path nuPath = new Path(
@@ -240,5 +261,21 @@ public class XmlHelper {
 	
 	public void setPathNormalizer( PathNormalizer pathNormalizer ) {
 		this.pathNormalizer_ = pathNormalizer;
+	}
+
+	public String getLayerLabelPattern() {
+		return this.layerLabelPattern_;
+	}
+	
+	public void setLayerLabelPattern( String layerLabelPattern ) {
+		this.layerLabelPattern_ = layerLabelPattern;
+	}
+	
+	public String getTitlePattern() {
+		return this.titlePattern_;
+	}
+	
+	public void setTitlePattern( String titlePattern ) {
+		this.titlePattern_ = titlePattern;
 	}
 };

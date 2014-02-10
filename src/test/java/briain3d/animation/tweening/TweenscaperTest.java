@@ -32,7 +32,28 @@ public class TweenscaperTest {
 		Tweenscaper tweenscaper = new Tweenscaper();
 		tweenscaper.setInput( new File( "src/test/data/tween_this.svg" ) );
 		tweenscaper.setOutput( new File( "target/test-classes/tweened_that.svg" ) );
+
+		// not implemented yet
 		// tweenscaper.setGifOutput( new File( "target/test-classes/tweened_that.gif" ) );
+			
+		tweenscaper.setInput( new File( "src/test/data/flat_tween_again.svg" ) );
+
+
+		if ( !true ) {	
+			tweenscaper.setPointTweener( new AngularTweener() );
+			tweenscaper.setRooted( true ); // pretty much always use this with AngularTweener 
+		}
+
+		tweenscaper.setPointCount( 300 );
+		tweenscaper.setTweenCount( 5 );
+
+		if ( !true ) {
+			tweenscaper.getXmlHelper().setLayerLabelPattern( ".*[23].*" );
+			tweenscaper.getXmlHelper().setTitlePattern( "^bleg$" );
+			tweenscaper.setPointCount( 300 );
+			tweenscaper.setTweenCount( 1 );
+		}
+
 		tweenscaper.run();
 	}
 

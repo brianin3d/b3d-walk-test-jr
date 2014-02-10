@@ -63,11 +63,17 @@ public class Tweenscaper {
 	private Map< Double, Layer > layers_;
 	private Map< Double, Layer > newLayers_;
 
+	private PointTweener pointTweener_ = new DiffTweener();
+
 	////
 
-	int LAME_TWEEN_COUNT = 6;
-	int LAME_POINT_COUNT = 400;
-	boolean LAME_ANGULAR = false;
+	public final static int DEFAULT_TWEEN_COUNT = 3;
+	public final static int DEFAULT_POINT_COUNT = 400;
+
+	private int tweenCount_ = DEFAULT_TWEEN_COUNT;
+	private int pointCount_ = DEFAULT_POINT_COUNT;
+
+	private boolean rooted_;
 
 	////
 
@@ -102,17 +108,9 @@ public class Tweenscaper {
 		double lastKey = 0;
 		Layer lastLayer = null;
 
-		double firstKey = 0;
-		Layer firstLayer = null;
-
 		for ( Map.Entry< Double, Layer > layerEntry : this.getLayers().entrySet() ) {
 			double key = layerEntry.getKey();
 			Layer layer = layerEntry.getValue();
-
-			if ( null == firstLayer ) {
-				firstKey = key;
-				firstLayer = layer;
-			}
 			
 			// make the inbetween layes
 
@@ -129,9 +127,8 @@ public class Tweenscaper {
 			lastLayer = layer;
 		}
 
-		// inbetween for first and last
-			
-		this.inbetween( lastKey, lastLayer, lastKey + 1 /* weak */, firstLayer );
+		// don't inbetween for first and last... 
+		// put an extra key at the end instead
 				
 		// out with the old
 
@@ -153,11 +150,9 @@ public class Tweenscaper {
 	public void inbetween( double previousKey, Layer previousLayer, double nextKey, Layer nextLayer ) throws Exception {
 		if ( null == previousLayer || null == nextLayer ) return;
 
-		int count = LAME_TWEEN_COUNT;
-
 		double diff = ( nextKey - previousKey );
-		for ( int i = 0 ; i < count ; i++ ) {
-			double percent = ( i + 1 ) / ( double ) ( count + 1 );
+		for ( int i = 0 ; i < this.getTweenCount() ; i++ ) {
+			double percent = ( i + 1 ) / ( double ) ( this.getTweenCount() + 1 );
 
 			double frame_id = previousKey + diff * percent;
 			String newLabel = "inbetween_" + frame_id;
@@ -231,15 +226,14 @@ public class Tweenscaper {
 			if ( null == previousPrior || null == nextPrior ) {
 				currentPoint = this.midpoint( percent, previousPoint, nextPoint );
 			} else {
-				if ( LAME_ANGULAR ) {
-					// use angle and distance
-					currentPoint = this.angularTween( percent, previousPoint, nextPoint, previousPrior, currentPrior, nextPrior );
-				} else {
-					currentPoint = this.diffTween( percent, previousPoint, nextPoint, previousPrior, currentPrior, nextPrior );
-				}
+				currentPoint = this.getPointTweener().tween( percent, previousPoint, nextPoint, previousPrior, currentPrior, nextPrior );
 			}
 
 			newPath.getPoints().add( currentPoint );
+
+			if ( this.getRooted() && null != nextPrior ) {
+				continue;
+			}
 
 			previousPrior = previousPoint;
 			nextPrior = nextPoint;
@@ -250,70 +244,7 @@ public class Tweenscaper {
 	}
 
 	public Point2D midpoint( double percent, Point2D previousPoint, Point2D nextPoint ) {
-		Point2D pointDiff = new Point2D.Double(
-			  nextPoint.getX() - previousPoint.getX() 
-			, nextPoint.getY() - previousPoint.getY()
-		);
-
-		return new Point2D.Double(
-			  previousPoint.getX() + pointDiff.getX() * percent 
-			, previousPoint.getY() + pointDiff.getY() * percent 
-		);
-	}
-
-	// this uses angular difference and distance... has problems
-	public Point2D angularTween( double percent, Point2D previousPoint, Point2D nextPoint, Point2D previousPrior, Point2D currentPrior, Point2D nextPrior ) {
-		double previousDistance = previousPoint.distance( previousPrior );
-		double previousAngle = this.angle( previousPrior, previousPoint );
-
-		double nextDistance = nextPoint.distance( nextPrior );
-		double nextAngle = this.angle( nextPrior, nextPoint );
-
-		double distanceDiff = nextDistance - previousDistance;
-		double angleDiff = nextAngle - previousAngle;
-
-		double distanceCurrent = previousDistance + distanceDiff * percent;
-		double angleCurrent = previousAngle + angleDiff * percent;
-
-		return new Point2D.Double(
-			currentPrior.getX() + Math.cos( angleCurrent ) * distanceCurrent
-			, currentPrior.getY() + Math.sin( angleCurrent ) * distanceCurrent
-		);
-	}
-
-	public double angle( Point2D a, Point2D b ) {
-		// toa = o/a = dy/dx
-		double dy = b.getY() - a.getY();
-		double dx = b.getX() - a.getX();
-
-		return Math.atan2( dy, dx );
-	}
-	
-	// uses diff tweening... slightly better than angular
-	public Point2D diffTween( double percent, Point2D previousPoint, Point2D nextPoint, Point2D previousPrior, Point2D currentPrior, Point2D nextPrior ) {
-		Point2D previousDiff = new Point2D.Double(
-				previousPoint.getX() - previousPrior.getX()
-				, previousPoint.getY() - previousPrior.getY()
-				);
-		Point2D nextDiff = new Point2D.Double(
-				nextPoint.getX() - nextPrior.getX()
-				, nextPoint.getY() - nextPrior.getY()
-				);
-
-		Point2D diffDiff = new Point2D.Double(
-				nextDiff.getX() - previousDiff.getX()
-				, nextDiff.getY() - previousDiff.getY()
-				);
-
-		Point2D currentDiff = new Point2D.Double(
-				previousDiff.getX() + diffDiff.getX() * percent
-				, previousDiff.getY() + diffDiff.getY() * percent
-				);
-
-		return new Point2D.Double(
-				currentPrior.getX() + currentDiff.getX()
-				, currentPrior.getY() + currentDiff.getY()
-				);
+		return new SimpleTweener().tween( percent, previousPoint, nextPoint, null, null, null );
 	}
 
 	////
@@ -384,7 +315,7 @@ public class Tweenscaper {
 	public Map< Double, Layer > getLayers() throws Exception {
 		return (
 			null == this.layers_
-			? this.layers_ = this.getXmlHelper().getLayers( LAME_POINT_COUNT, this.getInput() )
+			? this.layers_ = this.getXmlHelper().getLayers( this.getPointCount(), this.getInput() )
 			: this.layers_
 		);
 	}
@@ -403,5 +334,37 @@ public class Tweenscaper {
 	
 	public void setNewLayers( Map< Double, Layer > newLayers ) {
 		this.newLayers_ = newLayers;
+	}
+
+	public PointTweener getPointTweener() {
+		return this.pointTweener_;
+	}
+	
+	public void setPointTweener( PointTweener pointTweener ) {
+		this.pointTweener_ = pointTweener;
+	}
+
+	public int getTweenCount() {
+		return this.tweenCount_;
+	}
+	
+	public void setTweenCount( int tweenCount ) {
+		this.tweenCount_ = tweenCount;
+	}
+
+	public int getPointCount() {
+		return this.pointCount_;
+	}
+	
+	public void setPointCount( int pointCount ) {
+		this.pointCount_ = pointCount;
+	}
+
+	public boolean getRooted() {
+		return this.rooted_;
+	}
+	
+	public void setRooted( boolean rooted ) {
+		this.rooted_ = rooted;
 	}
 };
