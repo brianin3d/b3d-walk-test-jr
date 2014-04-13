@@ -84,7 +84,12 @@
 				};
 
 				this.foundGroup = function( g ) {
-					var id = g.getAttribute( 'id' );
+					//var id = g.getAttribute( 'id' );
+					var id = g.getAttribute( 'inkscape:label' );
+					if ( !id.match( /.*[1-9].*/ ) ) {
+						console.log( 'ignoring ' + id );
+						return;
+					}
 					if ( this.layers[ id ] ) {
 						this.layers[ id ].push( g );
 					} else {
@@ -159,6 +164,8 @@
 					var last = new Date().getTime();
 					var thiz = this;
 
+					var inc = 1;
+
 					this.interval = setInterval(
 						function() {
 							var now = new Date().getTime();
@@ -168,10 +175,25 @@
 							last = now;
 
 							thiz.displayByIndex( current, 'none' );
-							current++;
-							if ( current >= thiz.frames.length ) {
-								current = 0;
+
+							current += inc;
+
+							if ( thiz.configuration.bounce ) {
+								if ( current >= thiz.frames.length ) {
+									current = thiz.frames.length - 1;
+									inc = -1;
+								} else {
+									if ( current <= 0 ) {
+										current = 0;
+										inc = 1;
+									}
+								}
+							} else {
+								if ( current >= thiz.frames.length ) {
+									current = 0;
+								}
 							}
+
 							thiz.displayByIndex( current, 'inline' );
 						}
 						, 1 /* might be nicer to clear the interval... */
@@ -255,6 +277,13 @@
 							for ( var i = 0 ; i < thiz.iframes.length ; i++ ) {
 								thiz.iframes[ i ].style.border = value;
 							}
+						};
+					}
+
+					var bounce = this.id( 'bounce' );
+					if ( bounce ) {
+						bounce.onclick = function() {
+							thiz.configuration.bounce = bounce.checked;
 						};
 					}
 
@@ -372,6 +401,7 @@
 					, offset:0
 					, delay:0
 					, border:false
+					, bounce:false
 				};
 				var converters = { start:parseFloat, offset:parseFloat, delay:parseFloat };
 				var args = query_string.split( '&' );
@@ -414,6 +444,9 @@
 			<div class="retro_excessed">
 				<span class="label">border:</span>
 				<input id="border" type="checkbox"/>
+				|
+				<span class="label">bounce:</span>
+				<input id="bounce" type="checkbox"/>
 			</div>
 		</div>
 
